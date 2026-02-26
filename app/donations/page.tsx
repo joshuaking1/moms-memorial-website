@@ -28,6 +28,12 @@ export default function DonationsPage() {
   const[donations, setDonations] = useState<Donation[]>([]);
   const [totalRaised, setTotalRaised] = useState(0);
   const goalAmount = 20000; // Set your family's goal here in GHS
+  const [isClient, setIsClient] = useState(false);
+
+  // Ensure we're on the client side
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Paystack Configuration
   const config = {
@@ -38,7 +44,7 @@ export default function DonationsPage() {
     currency: 'GHS',
   };
 
-  const initializePayment = usePaystackPayment(config);
+  const initializePayment = isClient ? usePaystackPayment(config) : null;
 
   // Fetch past donations on load
   useEffect(() => {
@@ -91,6 +97,10 @@ export default function DonationsPage() {
     e.preventDefault();
     if (!amount || parseFloat(amount) <= 0) {
       alert("Please enter a valid amount.");
+      return;
+    }
+    if (!initializePayment) {
+      alert("Payment system is loading, please try again.");
       return;
     }
     // Launch Paystack Popup
