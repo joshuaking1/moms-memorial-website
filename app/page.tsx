@@ -1,65 +1,131 @@
-import Image from "next/image";
+// src/app/page.tsx
+"use client"; // This is crucial! It tells Next.js this is an interactive page.
+
+import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import { supabase } from '@/lib/supabaseClient';
+import LightACandleModal from '@/components/LightACandleModal';
 
 export default function Home() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [candleCount, setCandleCount] = useState(0);
+
+  // Fetch initial candle count and listen for real-time updates
+  useEffect(() => {
+    const fetchInitialCount = async () => {
+      const { count, error } = await supabase
+        .from('candles')
+        .select('*', { count: 'exact', head: true });
+
+      if (error) {
+        console.error('Error fetching candle count:', error);
+      } else if (count !== null) {
+        setCandleCount(count);
+      }
+    };
+
+    fetchInitialCount();
+
+    // Set up a real-time subscription
+    const channel = supabase
+      .channel('realtime candles')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'candles' },
+        (payload) => {
+          // When a new candle is inserted, update the count
+          setCandleCount((currentCount) => currentCount + 1);
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription on component unmount
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const handleLightCandle = async (name: string, message: string) => {
+    const { error } = await supabase
+      .from('candles')
+      .insert([{ name, message }]);
+
+    if (error) {
+      console.error('Error inserting candle:', error);
+      throw new Error('Could not light candle.');
+    }
+    // No need to update count here, the real-time listener will do it!
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <>
+      <main className="relative flex flex-col items-center justify-center min-h-screen text-white overflow-hidden">
+        {/* Background Animation: Soft floating lights */}
+        <div className="absolute inset-0 z-0">
+          <div className="absolute bg-blue-500/20 rounded-full w-96 h-96 -top-20 -left-20 animate-pulse-slow"></div>
+          <div className="absolute bg-purple-500/20 rounded-full w-72 h-72 -bottom-10 -right-10 animate-pulse-slower"></div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+
+        {/* Main Content */}
+        <div className="relative z-10 flex flex-col items-center text-center p-8">
+          {/* The beautiful photo */}
+          <div className="w-48 h-48 md:w-64 md:h-64 rounded-full overflow-hidden border-4 border-white/50 shadow-2xl shadow-purple-500/20 mb-6">
             <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+              src="/mom-photo.jpg"
+              alt="A beautiful photo of my mother"
+              width={256}
+              height={256}
+              className="object-cover w-full h-full"
+              priority
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
+
+          {/* Name and Dates */}
+          <h1 className="font-serif text-5xl md:text-7xl font-bold tracking-tight">
+            Mary Yaa Adjate Segu
+          </h1>
+          <p className="font-sans text-xl md:text-2xl text-white/80 mt-2">
+            1968 – 2026
+          </p>
+
+          {/* Tribute Line */}
+          <p className="font-serif italic text-2xl md:text-3xl mt-6">
+            Forever in our hearts, a legacy of love.
+          </p>
+
+          {/* "Light a Candle" Button */}
+          <div className="mt-12">
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="bg-yellow-400/80 hover:bg-yellow-400 text-gray-900 font-bold py-4 px-8 rounded-full text-lg shadow-lg shadow-yellow-500/20 transition-all duration-300 transform hover:scale-105 flex items-center space-x-3"
+            >
+              <span className="text-2xl">🕯️</span>
+              <span>Light a Virtual Candle</span>
+            </button>
+          </div>
+
+          {/* Candle Counter */}
+          <div className="mt-8 text-lg text-white/70">
+            {candleCount > 0 ? (
+              <p>
+                <span className="font-bold text-yellow-300 transition-all">
+                  {candleCount.toLocaleString()}
+                </span>
+                {candleCount === 1 ? ' candle has' : ' candles have'} been lit in her memory.
+              </p>
+            ) : (
+              <p>Be the first to light a candle in her memory.</p>
+            )}
+          </div>
         </div>
       </main>
-    </div>
+
+      {/* The Modal Component */}
+      <LightACandleModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSubmit={handleLightCandle} 
+      />
+    </>
   );
 }
