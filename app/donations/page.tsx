@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { usePaystackPayment } from 'react-paystack';
+import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabaseClient';
 import { motion } from 'framer-motion';
 
@@ -28,23 +28,25 @@ export default function DonationsPage() {
   const[donations, setDonations] = useState<Donation[]>([]);
   const [totalRaised, setTotalRaised] = useState(0);
   const goalAmount = 20000; // Set your family's goal here in GHS
-  const [isClient, setIsClient] = useState(false);
+  const [PaystackHook, setPaystackHook] = useState<any>(null);
 
-  // Ensure we're on the client side
+  // Load Paystack only on client side
   useEffect(() => {
-    setIsClient(true);
+    import('react-paystack').then((mod) => {
+      setPaystackHook(() => mod.usePaystackPayment);
+    });
   }, []);
 
   // Paystack Configuration
   const config = {
     reference: (new Date()).getTime().toString(), // Generates a unique ID
     email: email || "anonymous@support.com", // Paystack requires an email
-    amount: parseFloat(amount) * 100, // Paystack expects amount in Pesewas/Kobo
+    amount: parseFloat(amount || '0') * 100, // Paystack expects amount in Pesewas/Kobo
     publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY as string,
     currency: 'GHS',
   };
 
-  const initializePayment = isClient ? usePaystackPayment(config) : null;
+  const initializePayment = PaystackHook ? PaystackHook(config) : null;
 
   // Fetch past donations on load
   useEffect(() => {
