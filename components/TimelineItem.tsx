@@ -2,13 +2,13 @@
 "use client";
 
 import { motion } from 'framer-motion';
-import Image, { StaticImageData } from 'next/image';
+import Image from 'next/image';
 
 interface TimelineItemProps {
   year: string;
   title: string;
   description: string;
-  image: StaticImageData;
+  image: string;
   align: 'left' | 'right';
 }
 
